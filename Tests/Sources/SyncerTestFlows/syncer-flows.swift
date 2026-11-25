@@ -28,7 +28,9 @@ enum SyncerTestSuite: TestFlowRegistry {
         ]
     )
 
-    static let flows: [TestFlow] = [
+    static let flows: [TestFlow] = engineFlows + SyncerFrameFlows.flows
+
+    static let engineFlows: [TestFlow] = [
         TestFlow("route-matching", tags: ["routes"]) {
             try Expect.true(route.matches("deploy"), "name")
             try Expect.true(route.matches("ship"), "alias")

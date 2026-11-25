@@ -1,5 +1,5 @@
 {
-  "originHash" : "2c14696e5f8a7752c4bdbd058d0e77e7dac4f06ee25b0b4bfb69c0d9a024edf1",
+  "originHash" : "5bf3844b0db572546b5c6f60d7bcd480869c4fdc7ed987f68b6db5381d42b778",
   "pins" : [
     {
       "identity" : "ansi",
@@ -80,6 +80,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "315d095312091e4c089e60b24fa02df73d337531"
+      }
+    },
+    {
+      "identity" : "frame",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/lco-langs/Frame.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "8c3756066075be94da9698d8fceb9d3427600b14"
       }
     },
     {
@@ -179,6 +188,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "309f9cddd8379816e0440891b9fdcfcd30d5f2d4"
+      }
+    },
+    {
+      "identity" : "partition",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swift-lco/Partition.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "786ec2e830cf3d0340e9a9fc96d2308ffb169023"
       }
     },
     {
@@ -287,6 +305,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "cc7396a5c06e61a67eb48846a72dbe39dfff3305"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser.git",
+      "state" : {
+        "revision" : "6a52f3251125d74daf04fcbd5e6f08a75d074382",
+        "version" : "1.8.2"
       }
     },
     {
