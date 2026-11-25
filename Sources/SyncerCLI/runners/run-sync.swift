@@ -1,11 +1,9 @@
+import ANSI
+import Difference
 import Foundation
-import ArgumentParser
 import Interfaces
 import Syncer
-import Difference
-
 import Terminal
-import ANSI
 
 actor LastResultBox {
     private var value: Shell.Result?
@@ -19,115 +17,31 @@ actor LastResultBox {
     }
 }
 
-struct SyncCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "sync",
-        abstract: "Rsync-based directory sync."
-    )
-
-    @Argument(help: "Route name to execute. Use --list to see routes.")
-    var route: String?
-
-    @Flag(name: [.customShort("l"), .customLong("list")], help: "List available routes.")
-    var listRoutes: Bool = false
-
-    @Flag(help: "Pass --dry-run to rsync.")
-    var dryRun: Bool = false
-
-    @Flag(help: "Override route setting to include --delete.")
-    var delete: Bool = false
-
-    @Flag(help: "Override route setting to exclude --delete.")
-    var noDelete: Bool = false
-
-    @Flag(name: [.customShort("v"), .long], help: "Stream rsync output live.")
-    var verbose: Bool = false
-
-    @Flag(help: "Reveal the sent commands in rsync")
-    var revealCommands: Bool = false
-
-    @Flag(help: "Skip route post-sync hooks.")
-    var skipPostSync: Bool = false
-
-    @Flag(help: "Skip preflight confirmation before real rsync.")
-    var skipPreflight: Bool = false
-
-    @Flag(help: "Render text diffs for preflight create, transfer, and delete items.")
-    var diff: Bool = false
-
-    @Flag(help: "Disable remote snapshot reads while rendering diffs.")
-    var diffLocalOnly: Bool = false
-
-    @Option(help: "Maximum number of preflight diffs to render.")
-    var diffLimit: Int = 10
-
-    @Option(help: "Maximum file size in bytes for each diff snapshot.")
-    var diffMaximumBytes: Int = 512_000
-
-    @Option(
-        name: .customLong("diff-path"),
-        parsing: .upToNextOption,
-        help: "Only render diffs for these preflight item paths. Supports suffix matching."
-    )
-    var diffPaths: [String] = []
-
-    @Flag(help: "Use rsync's size+mtime quick-check instead of checksum comparison.")
-    var quickCheck: Bool = false
-
-    @Flag(help: "Preserve file modification times instead of ignoring timestamp-only drift.")
-    var preserveTimes: Bool = false
-
-    @Option(
-        name: [
-            .customShort("f"),
-            .customLong("raw"),
-            .customLong("extra-flags"),
-        ],
-        parsing: .upToNextOption,
-        help: "Unsafe raw rsync args. Example: --raw --itemize-changes"
-    )
-    var raw: [String] = []
-
-    func run() async throws {
-        if listRoutes {
+enum SyncRunner {
+    static func run(
+        _ options: SyncOptions
+    ) async throws {
+        let routeName: String
+        switch options.action {
+        case .list:
             try SyncerRoutes.names().forEach {
                 print($0)
             }
-
             return
-        }
-
-        guard let routeName = route else {
-            throw ValidationError("Missing route name. Use --list to see stored routes.")
+        case .run(let route):
+            routeName = route
         }
 
         guard let selected = try SyncerRoutes.byName(routeName) else {
-            throw ValidationError("Unknown route '\(routeName)'. Use --list.")
+            throw SyncerCLIError.unknownRoute(routeName)
         }
 
-        if diff,
-           skipPreflight,
-           !dryRun {
-            throw ValidationError("--diff requires preflight. Remove --skip-preflight or use --dry-run.")
-        }
-
-        let deleteOverride: Bool? = {
-            if delete && noDelete { return nil }
-            if delete { return true }
-            if noDelete { return false }
-            return nil
-        }()
-
-        let planOptions = Sync.PlanOptions(
-            comparison: quickCheck ? .quickCheck : .checksum,
-            metadata: preserveTimes ? .preserve : .contentOnly,
-            raw: raw
-        )
+        let verbose = options.verbose
 
         let planned = Sync.plan(
             selected,
-            options: planOptions,
-            includeDeleteOverride: deleteOverride
+            options: options.plan,
+            includeDeleteOverride: options.deleteOverride
         )
 
         print()
@@ -135,7 +49,7 @@ struct SyncCommand: AsyncParsableCommand {
         print("    \(selected.name)")
         print()
 
-        if revealCommands {
+        if options.revealCommands {
             print("Commands:".ansi(.brightBlack))
             planned.commands.forEach {
                 print("\($0.prettyMultiline())\n")
@@ -148,48 +62,35 @@ struct SyncCommand: AsyncParsableCommand {
 
         let policy: Sync.OutputPolicy = verbose ? .verbose : .quietUntilFailure
 
-        let resolvedRoute: Sync.Route = {
-            if skipPostSync {
-                return .init(
-                    name: selected.name,
-                    deletesExtraneous: selected.deletesExtraneous,
-                    batches: selected.batches,
-                    hooks: []
-                )
-            }
+        let resolvedRoute: Sync.Route = options.skipHooks
+            ? .init(
+                name: selected.name,
+                deletesExtraneous: selected.deletesExtraneous,
+                batches: selected.batches,
+                hooks: []
+            )
+            : selected
 
-            return selected
-        }()
-
-        let mode: Sync.Mode = {
-            if dryRun {
-                return .preflight
-            }
-
-            if skipPreflight {
-                return .direct
-            }
-
-            return .gated
-        }()
-
-        if dryRun {
+        switch options.mode {
+        case .preflight:
             print("Dry run:".ansi(.brightBlack))
             print("    rsync only, content checksum check, timestamp-only drift ignored, no hooks, no real sync")
             print()
-        } else if !skipPreflight {
+        case .gated:
             print("Preflight:".ansi(.brightBlack))
             print("    dry-run rsync, content checksum check, timestamp-only drift ignored, no hooks")
             print()
+        default:
+            break
         }
 
         do {
             let result = try await Sync.run(
                 resolvedRoute,
                 options: .init(
-                    mode: mode,
+                    mode: options.mode,
                     execution: .init(
-                        plan: planOptions,
+                        plan: options.plan,
                         dryRun: false,
                         shell: .init(.path("/usr/bin/env")),
                         cwd: nil,
@@ -226,7 +127,7 @@ struct SyncCommand: AsyncParsableCommand {
                             }
                         }
                     ),
-                    includeDeleteOverride: deleteOverride
+                    includeDeleteOverride: options.deleteOverride
                 ),
                 shouldRun: { report in
                     SyncPreflightRenderer.print(
@@ -234,7 +135,8 @@ struct SyncCommand: AsyncParsableCommand {
                     )
 
                     await renderDiffs(
-                        from: report
+                        from: report,
+                        options: options.diffs
                     )
 
                     guard Terminal.confirm(
@@ -251,14 +153,15 @@ struct SyncCommand: AsyncParsableCommand {
                 }
             )
 
-            if dryRun,
+            if options.mode == .preflight,
                let report = result.preflight {
                 SyncPreflightRenderer.print(
                     report
                 )
 
                 await renderDiffs(
-                    from: report
+                    from: report,
+                    options: options.diffs
                 )
             }
         } catch {
@@ -275,13 +178,12 @@ struct SyncCommand: AsyncParsableCommand {
             throw error
         }
     }
-}
 
-private extension SyncCommand {
-    func renderDiffs(
-        from report: Sync.Preflight.Report
+    private static func renderDiffs(
+        from report: Sync.Preflight.Report,
+        options: SyncOptions.DiffOptions?
     ) async {
-        guard diff else {
+        guard let options else {
             return
         }
 
@@ -297,16 +199,10 @@ private extension SyncCommand {
                         .transfer,
                         .deleted,
                     ],
-                    paths: Set(diffPaths),
-                    limit: max(
-                        0,
-                        diffLimit
-                    ),
-                    maximumBytes: max(
-                        0,
-                        diffMaximumBytes
-                    ),
-                    allowRemote: !diffLocalOnly,
+                    paths: options.paths,
+                    limit: options.limit,
+                    maximumBytes: options.maximumBytes,
+                    allowRemote: !options.localOnly,
                     shell: .init(.path("/usr/bin/env"))
                 )
             )
@@ -325,8 +221,7 @@ private extension SyncCommand {
 
                 print(
                     TerminalDifferenceRenderer.render(
-                        change.difference,
-                        // options: .unified
+                        change.difference
                     )
                 )
             }

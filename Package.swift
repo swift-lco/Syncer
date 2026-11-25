@@ -36,7 +36,7 @@ let package = Package(
         .package(url: "https://github.com/lco-langs/Frame.git", branch: "master"),
         .package(url: "https://github.com/swift-lco/Terminal.git", branch: "master"),
         .package(url: "https://github.com/swift-lco/ANSI.git", branch: "master"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
+        .package(url: "https://github.com/swift-lco/Arguments.git", branch: "master"),
     ],
     targets: [
         .target(
@@ -68,7 +68,7 @@ let package = Package(
                 "Syncer",
                 "SyncerFrame",
                 .product(name: "Interfaces", package: "Interfaces"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "Arguments", package: "Arguments"),
                 .product(name: "Difference", package: "Difference"),
                 .product(name: "Terminal", package: "Terminal"),
                 .product(name: "ANSI", package: "ANSI"),
