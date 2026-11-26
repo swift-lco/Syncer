@@ -1,4 +1,5 @@
 import Errors
+import Foundation
 import Syncer
 import TestFlows
 
@@ -103,5 +104,46 @@ enum SyncerTestSuite: TestFlowRegistry {
             try Expect.equal(SyncError.hookFailed(hookLine: "true", exitCode: 1).errorCode, "hook_failed", "hook code")
             return []
         },
+
+        // ssh joins its arguments with spaces and the remote login shell splits
+        // them again. Replaying that locally with `sh -c` must run the whole
+        // line inside the hook's shell, in its cwd.
+        TestFlow("remote-hook-survives-ssh-joining", tags: ["hooks"]) {
+            let hook = Sync.Hook.remote(
+                "server-a",
+                "pwd && echo \"it's here\"",
+                cwd: "/tmp",
+                shell: "sh",
+                shellOptions: ["-c"]
+            )
+            let arguments = Sync.hookCommand(hook).arguments
+            try Expect.equal(Array(arguments.prefix(2)), ["ssh", "server-a"], "ssh, then the host")
+
+            let output = try remoteReplay(arguments.dropFirst(2).joined(separator: " "))
+            try Expect.equal(output, "/tmp\nit's here\n", "cd and the whole line ran in the hook's shell")
+            return []
+        },
+
+        TestFlow("local-hook-quotes-cwd", tags: ["hooks"]) {
+            let hook = Sync.Hook.local("pwd", cwd: "/tmp", shell: "sh", shellOptions: ["-c"])
+            let arguments = Sync.hookCommand(hook).arguments
+            try Expect.equal(arguments, ["/usr/bin/env", "sh", "-c", "cd /tmp && pwd"], "argv straight to the shell")
+            return []
+        },
     ]
+
+    /// What a remote login shell does with the string ssh sends it.
+    static func remoteReplay(
+        _ joined: String
+    ) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", joined]
+        process.currentDirectoryURL = URL(fileURLWithPath: "/")
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        try process.run()
+        process.waitUntilExit()
+        return String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    }
 }

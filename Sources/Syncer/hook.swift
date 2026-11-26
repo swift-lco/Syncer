@@ -1,3 +1,4 @@
+import Foundation
 import Interfaces
 
 extension Sync {
@@ -64,43 +65,61 @@ extension Sync {
 }
 
 extension Sync {
+    /// A local hook runs `env <shell> <options> <line>` directly. A remote
+    /// hook goes through ssh, which joins its arguments with spaces for the
+    /// remote login shell to split again; every word is quoted for that shell,
+    /// so the line reaches `<shell> -c` whole (cwd included).
     public static func hookCommand(_ hook: Hook) -> Command {
-        func makeShellCommand(shell: String, options: [String], line: String) -> [String] {
-            var args: [String] = ["/usr/bin/env", shell]
-            args.append(contentsOf: options)
-            args.append(line)
-            return args
-        }
+        var line = hook.requiresSudo ? "sudo \(hook.line)" : hook.line
 
         switch hook.target {
         case let .local(cwd):
-            var localLine = hook.requiresSudo ? "sudo \(hook.line)" : hook.line
-
             if let cwd, !cwd.isEmpty {
-                localLine = "cd \(cwd) && \(localLine)"
+                line = "cd \(shellQuoted(expandingHome(cwd))) && \(line)"
             }
-
-            return Command(arguments: makeShellCommand(
-                shell: hook.shell,
-                options: hook.shellOptions,
-                line: localLine
-            ))
+            return Command(arguments: ["/usr/bin/env", hook.shell] + hook.shellOptions + [line])
 
         case let .remote(host, cwd):
-            var remoteLine = hook.requiresSudo ? "sudo \(hook.line)" : hook.line
-
             if let cwd, !cwd.isEmpty {
-                remoteLine = "cd \(cwd) && \(remoteLine)"
+                line = "cd \(remoteDirectory(cwd)) && \(line)"
             }
-
-            var args: [String] = ["ssh", host]
-            args.append(contentsOf: makeShellCommand(
-                shell: hook.shell,
-                options: hook.shellOptions,
-                line: remoteLine
-            ))
-
-            return Command(arguments: args)
+            let remote = ["/usr/bin/env", hook.shell] + hook.shellOptions + [line]
+            return Command(arguments: ["ssh", host] + remote.map(shellQuoted))
         }
+    }
+
+    /// One word for a POSIX shell: single-quoted, with embedded quotes escaped.
+    public static func shellQuoted(
+        _ word: String
+    ) -> String {
+        let safe = word.allSatisfy { character in
+            character.isLetter || character.isNumber || "/._-+=:,@%".contains(character)
+        }
+        if safe, !word.isEmpty {
+            return word
+        }
+        return "'" + word.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    /// `~` and `~/…` stay unquoted so the remote shell expands them.
+    static func remoteDirectory(
+        _ cwd: String
+    ) -> String {
+        if cwd == "~" {
+            return "~"
+        }
+        if cwd.hasPrefix("~/") {
+            return "~/" + shellQuoted(String(cwd.dropFirst(2)))
+        }
+        return shellQuoted(cwd)
+    }
+
+    static func expandingHome(
+        _ path: String
+    ) -> String {
+        guard path == "~" || path.hasPrefix("~/") else {
+            return path
+        }
+        return NSString(string: path).expandingTildeInPath
     }
 }
