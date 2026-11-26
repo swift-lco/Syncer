@@ -28,7 +28,7 @@ enum SyncerTestSuite: TestFlowRegistry {
         ]
     )
 
-    static let flows: [TestFlow] = engineFlows + SyncerFrameFlows.flows
+    static let flows: [TestFlow] = engineFlows + SyncerFrameFlows.flows + PreflightTreeFlows.flows
 
     static let engineFlows: [TestFlow] = [
         TestFlow("route-matching", tags: ["routes"]) {

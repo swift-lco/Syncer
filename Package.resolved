@@ -1,5 +1,5 @@
 {
-  "originHash" : "4900fe854219ff06a30c43b6fee650d69ae2c649bdb48937560487dbe0a3727e",
+  "originHash" : "4831931403060307fe794641eee45549ea094a9cf96dd366543f8f1cde507aed",
   "pins" : [
     {
       "identity" : "ansi",
@@ -43,7 +43,7 @@
       "location" : "https://github.com/swift-lco/Difference.git",
       "state" : {
         "branch" : "master",
-        "revision" : "37f9a4f9b56bb547b3c3915e664e7e9de927bff0"
+        "revision" : "e1bfbba9d1fbb182083b6a1871d7e3883f3ed091"
       }
     },
     {

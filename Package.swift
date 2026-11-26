@@ -27,6 +27,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/swift-lco/Interfaces.git", branch: "master"),
         .package(url: "https://github.com/swift-lco/Difference.git", branch: "master"),
+        .package(url: "https://github.com/swift-lco/Primitives.git", branch: "master"),
         .package(url: "https://github.com/swift-lco/Indentation.git", branch: "master"),
         .package(url: "https://github.com/swift-lco/Readers.git", branch: "master"),
         .package(url: "https://github.com/swift-lco/Errors.git", branch: "master"),
@@ -44,6 +45,7 @@ let package = Package(
             dependencies: [
                 .product(name: "Interfaces", package: "Interfaces"),
                 .product(name: "Difference", package: "Difference"),
+                .product(name: "Primitives", package: "Primitives"),
                 .product(name: "Indentation", package: "Indentation"),
                 .product(name: "Readers", package: "Readers"),
                 .product(name: "Errors", package: "Errors"),
@@ -70,6 +72,7 @@ let package = Package(
                 .product(name: "Interfaces", package: "Interfaces"),
                 .product(name: "Arguments", package: "Arguments"),
                 .product(name: "Difference", package: "Difference"),
+                .product(name: "Primitives", package: "Primitives"),
                 .product(name: "Terminal", package: "Terminal"),
                 .product(name: "ANSI", package: "ANSI"),
             ]

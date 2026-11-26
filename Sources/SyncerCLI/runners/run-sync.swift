@@ -131,7 +131,8 @@ enum SyncRunner {
                 ),
                 shouldRun: { report in
                     SyncPreflightRenderer.print(
-                        report
+                        report,
+                        full: options.fullTree
                     )
 
                     await renderDiffs(
@@ -156,7 +157,8 @@ enum SyncRunner {
             if options.mode == .preflight,
                let report = result.preflight {
                 SyncPreflightRenderer.print(
-                    report
+                    report,
+                    full: options.fullTree
                 )
 
                 await renderDiffs(

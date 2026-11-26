@@ -19,6 +19,8 @@ struct SyncOptions: Sendable, ArgumentParsed {
     let verbose: Bool
     let revealCommands: Bool
     let skipHooks: Bool
+    /// Every preflight path, no folded folders.
+    let fullTree: Bool
     let diffs: DiffOptions?
 
     struct DiffOptions: Sendable {
@@ -58,6 +60,7 @@ struct SyncOptions: Sendable, ArgumentParsed {
         verbose = arguments.verbose
         revealCommands = arguments.revealCommands
         skipHooks = arguments.skipPostSync
+        fullTree = arguments.full
         diffs = arguments.diff
             ? DiffOptions(
                 localOnly: arguments.diffLocalOnly,
@@ -95,6 +98,9 @@ struct SyncOptions: Sendable, ArgumentParsed {
 
         @Flag("skip-preflight", help: "Skip preflight confirmation before real rsync.")
         var skipPreflight: Bool
+
+        @Flag("full", help: "Show every preflight path instead of folding large folders.")
+        var full: Bool
 
         @Flag("diff", help: "Render text diffs for preflight create, transfer, and delete items.")
         var diff: Bool
