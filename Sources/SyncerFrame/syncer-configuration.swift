@@ -73,14 +73,16 @@ public enum SyncerConfiguration {
         }
 
         mutating func routes(
-            from file: URL
+            from file: URL,
+            excludes inherited: [String] = []
         ) throws -> [Sync.Route] {
-            try routes(source: try read(file), file: file)
+            try routes(source: try read(file), file: file, excludes: inherited)
         }
 
         mutating func routes(
             source: String,
-            file: URL
+            file: URL,
+            excludes inherited: [String] = []
         ) throws -> [Sync.Route] {
             let path = file.standardizedFileURL.path
             guard !visiting.contains(path) else {
@@ -97,9 +99,10 @@ public enum SyncerConfiguration {
                 throw SyncerConfigurationError.invalid(file: path, message: "\(error)")
             }
 
+            let excludes = Self.merged(inherited, decoded.excludes ?? [])
             var out: [Sync.Route] = []
             for include in decoded.include ?? [] {
-                out += try routes(from: try resolve(include: include, relativeTo: file))
+                out += try routes(from: try resolve(include: include, relativeTo: file), excludes: excludes)
             }
             for route in decoded.entries ?? [] {
                 for name in [route.name] + (route.aliases ?? []) {
@@ -108,9 +111,18 @@ public enum SyncerConfiguration {
                     }
                     seen[name] = path
                 }
-                out.append(try convert(route))
+                out.append(try convert(route, excludes: excludes))
             }
             return out
+        }
+
+        /// In order, without repeats.
+        static func merged(
+            _ first: [String],
+            _ second: [String]
+        ) -> [String] {
+            var seen: Set<String> = []
+            return (first + second).filter { seen.insert($0).inserted }
         }
 
         mutating func partitionPath(
@@ -143,7 +155,8 @@ public enum SyncerConfiguration {
         }
 
         mutating func convert(
-            _ route: SyncerFrame.Route
+            _ route: SyncerFrame.Route,
+            excludes common: [String] = []
         ) throws -> Sync.Route {
             var batches: [Sync.Batch] = []
             for batch in route.batches {
@@ -161,7 +174,7 @@ public enum SyncerConfiguration {
                     destinations: batch.destinations.map { .init(host: $0.host, directory: $0.directory) },
                     requiresSudo: batch.requires_sudo ?? false,
                     chown: batch.chown,
-                    excludes: batch.excludes ?? []
+                    excludes: Self.merged(common, batch.excludes ?? [])
                 ))
             }
             let hooks: [Sync.Hook] = (route.hooks ?? []).map { hook in

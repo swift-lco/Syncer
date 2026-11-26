@@ -127,6 +127,26 @@ enum SyncerFrameFlows {
             return []
         },
 
+        TestFlow("frame-common-excludes", tags: ["frame", "include"]) {
+            let included = """
+            import Syncer;
+            let routes: Routes = .{ .excludes = ["*.log"], .entries = [
+                .{ .name = "inner", .batches = [ .{ .sources = ["/srv/a"], .destinations = [ .{ .directory = "/srv/b" } ], .excludes = [".git/"] } ] },
+            ] };
+            """
+            let root = """
+            import Syncer;
+            let routes: Routes = .{ .include = ["inner.frame"], .excludes = [".cache/", ".git/"], .entries = [
+                .{ .name = "outer", .batches = [ .{ .sources = ["/srv/c"], .destinations = [ .{ .directory = "/srv/d" } ], .excludes = [".git/", "tmp/"] } ] },
+            ] };
+            """
+            let routes = try loaded(root, files: ["/cfg/inner.frame": included])
+            try Expect.equal(routes.map(\.name), ["inner", "outer"], "included route first")
+            try Expect.equal(routes[0].batches[0].excludes, [".cache/", ".git/", "*.log"], "including file's, then the file's own, then the batch's; no repeats")
+            try Expect.equal(routes[1].batches[0].excludes, [".cache/", ".git/", "tmp/"], "file's excludes before the batch's")
+            return []
+        },
+
         TestFlow("frame-duplicate-route", tags: ["frame", "errors"]) {
             let twice = """
             import Syncer;

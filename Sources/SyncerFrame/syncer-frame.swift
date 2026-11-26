@@ -7,6 +7,7 @@ import Syncer
 ///
 ///     let routes: Routes = .{
 ///         .include = ["@service/conf.d/syncer/deploy.frame"],
+///         .excludes = [".DS_Store"],
 ///         .entries = [
 ///             .{ .name = "site", .aliases = ["web"], .deletes_extraneous = true, .batches = [
 ///                 .{
@@ -26,6 +27,8 @@ import Syncer
 /// optional path inside it. `include` adds the routes of other files; a path
 /// starting with `@key/` is inside that partition key, a relative path is next
 /// to the including file. A file holding only `include` stands in for another.
+/// `excludes` on `Routes` applies to every batch in the file and in the files
+/// it includes, before the batch's own excludes.
 public enum SyncerFrame {
     public static let module = Frame.Module("Syncer", types: [
         .decodable(Routes.self, named: "Routes"),
@@ -40,6 +43,8 @@ public enum SyncerFrame {
 
     public struct Routes: Sendable, Hashable, Decodable {
         public let include: [String]?
+        /// Excluded from every batch in this file and in the files it includes.
+        public let excludes: [String]?
         public let entries: [Route]?
     }
 
